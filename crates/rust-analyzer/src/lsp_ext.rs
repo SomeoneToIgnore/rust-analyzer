@@ -236,9 +236,12 @@ pub enum InlayKind {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct InlayHint {
+    pub text: String,
     pub range: Range,
     pub kind: InlayKind,
-    pub label: String,
+    pub description: Option<String>,
+    pub whitespace_before: Option<bool>,
+    pub whitespace_after: Option<bool>,
 }
 
 pub enum Ssr {}

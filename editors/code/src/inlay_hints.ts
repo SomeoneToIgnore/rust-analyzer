@@ -1,4 +1,3 @@
-import * as lc from "vscode-languageclient";
 import * as vscode from 'vscode';
 import * as ra from './lsp_ext';
 
@@ -18,8 +17,8 @@ export function activateInlayHints(ctx: Ctx) {
             if (!ctx.config.inlayHints.enable || !anyEnabled) return;
 
             this.disposable = vscode.languages.registerInlineHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlineHintsProvider {
-                async provideInlineHints(document: vscode.TextDocument, _range: vscode.Range, token: vscode.CancellationToken): Promise<vscode.InlineHint[]> {
-                    const request = { textDocument: { uri: document.uri.toString() } };
+                async provideInlineHints(document: vscode.TextDocument, range: vscode.Range, token: vscode.CancellationToken): Promise<vscode.InlineHint[]> {
+                    const request = { textDocument: { uri: document.uri.toString() }, range: { start: range.start, end: range.end } };
                     const hints = await sendRequestWithRetry(ctx.client, ra.inlayHints, request, token).catch(_ => null)
                     if (hints == null) {
                         return [];
