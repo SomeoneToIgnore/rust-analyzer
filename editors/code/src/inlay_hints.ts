@@ -2,21 +2,23 @@ import * as vscode from 'vscode';
 import * as ra from './lsp_ext';
 
 import { Ctx, Disposable } from './ctx';
-import { sendRequestWithRetry } from './util';
+import { sendRequestWithRetry, isRustDocument } from './util';
 
 export function activateInlayHints(ctx: Ctx) {
     const maybeUpdater = {
-        disposable: null as null | Disposable,
+        disposables: [] as Disposable[],
+        updateHintsEventEmitter: new vscode.EventEmitter<void>(),
 
         async onConfigChange() {
-            this.disposable?.dispose();
-
             const anyEnabled = ctx.config.inlayHints.typeHints
                 || ctx.config.inlayHints.parameterHints
                 || ctx.config.inlayHints.chainingHints;
-            if (!ctx.config.inlayHints.enable || !anyEnabled) return;
+            const enabled = ctx.config.inlayHints.enable && anyEnabled;
+            if (!enabled) return this.dispose();
 
-            this.disposable = vscode.languages.registerInlineHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlineHintsProvider {
+            const event = this.updateHintsEventEmitter.event;
+            const hintsDisposable = vscode.languages.registerInlineHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlineHintsProvider {
+                onDidChangeInlineHints = event;
                 async provideInlineHints(document: vscode.TextDocument, range: vscode.Range, token: vscode.CancellationToken): Promise<vscode.InlineHint[]> {
                     const request = { textDocument: { uri: document.uri.toString() }, range: { start: range.start, end: range.end } };
                     const hints = await sendRequestWithRetry(ctx.client, ra.inlayHints, request, token).catch(_ => null)
@@ -27,9 +29,18 @@ export function activateInlayHints(ctx: Ctx) {
                     }
                 }
             });
+            this.disposables.push(hintsDisposable);
+
+            vscode.workspace.onDidChangeTextDocument(({ contentChanges, document }: vscode.TextDocumentChangeEvent) => {
+                if (contentChanges.length === 0 || !isRustDocument(document)) return;
+                this.updateHintsEventEmitter.fire();
+            }, this, this.disposables);
         },
+
         dispose() {
-            this.disposable?.dispose();
+            this.disposables.forEach(d => d.dispose());
+            this.updateHintsEventEmitter.dispose();
+            this.disposables = [];
         }
     }
 
