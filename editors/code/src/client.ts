@@ -68,7 +68,7 @@ export function createClient(serverPath: string, workspace: Workspace, extraEnv:
                         return hover;
                     },
                     (error) => {
-                        client.handleFailedRequest(lc.HoverRequest.type, token, error, null);
+                        client.handleFailedRequest(lc.HoverRequest.type, token, error);
                         return Promise.resolve(null);
                     });
             },
