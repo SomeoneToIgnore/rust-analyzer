@@ -6,18 +6,20 @@ import { sendRequestWithRetry, isRustDocument } from './util';
 
 export function activateInlayHints(ctx: Ctx) {
     const maybeUpdater = {
-        disposables: [] as Disposable[],
+        hintsProvider: null as Disposable | null,
         updateHintsEventEmitter: new vscode.EventEmitter<void>(),
 
         async onConfigChange() {
+            this.dispose();
+
             const anyEnabled = ctx.config.inlayHints.typeHints
                 || ctx.config.inlayHints.parameterHints
                 || ctx.config.inlayHints.chainingHints;
             const enabled = ctx.config.inlayHints.enable && anyEnabled;
-            if (!enabled) return this.dispose();
+            if (!enabled) return;
 
             const event = this.updateHintsEventEmitter.event;
-            const hintsDisposable = vscode.languages.registerInlineHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlineHintsProvider {
+            this.hintsProvider = vscode.languages.registerInlineHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlineHintsProvider {
                 onDidChangeInlineHints = event;
                 async provideInlineHints(document: vscode.TextDocument, range: vscode.Range, token: vscode.CancellationToken): Promise<vscode.InlineHint[]> {
                     const request = { textDocument: { uri: document.uri.toString() }, range: { start: range.start, end: range.end } };
@@ -29,25 +31,24 @@ export function activateInlayHints(ctx: Ctx) {
                     }
                 }
             });
-            this.disposables.push(hintsDisposable);
+        },
 
-            vscode.workspace.onDidChangeTextDocument(({ contentChanges, document }: vscode.TextDocumentChangeEvent) => {
-                if (contentChanges.length === 0 || !isRustDocument(document)) return;
-                this.updateHintsEventEmitter.fire();
-            }, this, this.disposables);
+        onDidChangeTextDocument({ contentChanges, document }: vscode.TextDocumentChangeEvent) {
+            if (contentChanges.length === 0 || !isRustDocument(document)) return;
+            this.updateHintsEventEmitter.fire();
         },
 
         dispose() {
-            this.disposables.forEach(d => d.dispose());
+            this.hintsProvider?.dispose();
+            this.hintsProvider = null;
             this.updateHintsEventEmitter.dispose();
-            this.disposables = [];
-        }
+        },
     }
 
     ctx.pushCleanup(maybeUpdater);
 
-    vscode.workspace.onDidChangeConfiguration(
-        maybeUpdater.onConfigChange, maybeUpdater, ctx.subscriptions
-    );
+    vscode.workspace.onDidChangeConfiguration(maybeUpdater.onConfigChange, maybeUpdater, ctx.subscriptions);
+    vscode.workspace.onDidChangeTextDocument(maybeUpdater.onDidChangeTextDocument, maybeUpdater, ctx.subscriptions);
+
     maybeUpdater.onConfigChange().catch(console.error);
 }
