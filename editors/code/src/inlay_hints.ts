@@ -19,9 +19,9 @@ export function activateInlayHints(ctx: Ctx) {
             if (!enabled) return;
 
             const event = this.updateHintsEventEmitter.event;
-            this.hintsProvider = vscode.languages.registerInlineHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlineHintsProvider {
-                onDidChangeInlineHints = event;
-                async provideInlineHints(document: vscode.TextDocument, range: vscode.Range, token: vscode.CancellationToken): Promise<vscode.InlineHint[]> {
+            this.hintsProvider = vscode.languages.registerInlayHintsProvider({ scheme: 'file', language: 'rust' }, new class implements vscode.InlayHintsProvider {
+                onDidChangeInlayHints = event;
+                async provideInlayHints(document: vscode.TextDocument, range: vscode.Range, token: vscode.CancellationToken): Promise<vscode.InlayHint[]> {
                     const request = { textDocument: { uri: document.uri.toString() }, range: { start: range.start, end: range.end } };
                     const hints = await sendRequestWithRetry(ctx.client, ra.inlayHints, request, token).catch(_ => null)
                     if (hints == null) {
