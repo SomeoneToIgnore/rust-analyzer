@@ -70,6 +70,19 @@ async function tryActivate(context: vscode.ExtensionContext) {
         null,
         ctx.subscriptions,
     );
+
+    vscode.workspace.onDidOpenTextDocument(
+        documentOpened => {
+            if (isRustDocument(documentOpened)) {
+                const documentPath = documentOpened.uri.fsPath;
+                const relativePath = vscode.workspace.asRelativePath(documentOpened.uri, true);
+                if (relativePath === documentPath) {
+                    // TODO kb this triggers when a file from the crate is opened
+                    log.info(`!!!!! Opened a non-workspace Rust file: ${documentOpened.fileName}`);
+                }
+            }
+        },
+    );
 }
 
 async function initCommonContext(context: vscode.ExtensionContext, ctx: Ctx) {
