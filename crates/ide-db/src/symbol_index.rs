@@ -47,6 +47,7 @@ use crate::RootDatabase;
 #[derive(Debug, Clone)]
 pub struct Query {
     query: String,
+    qualifier_segments: Vec<String>,
     lowercased: String,
     mode: SearchMode,
     assoc_mode: AssocSearchMode,
@@ -57,7 +58,11 @@ pub struct Query {
 
 impl Query {
     pub fn new(query: String) -> Query {
+        let mut path_segments = query.rsplit("::").fuse();
+        let query = path_segments.next().unwrap_or(&query).to_owned();
         let lowercased = query.to_lowercase();
+        let mut qualifier_segments = path_segments.map(ToOwned::to_owned).collect::<Vec<_>>();
+        qualifier_segments.reverse();
         Query {
             query,
             lowercased,
@@ -66,6 +71,7 @@ impl Query {
             mode: SearchMode::Fuzzy,
             assoc_mode: AssocSearchMode::Include,
             case_sensitive: false,
+            qualifier_segments,
         }
     }
 
@@ -222,7 +228,9 @@ pub fn world_symbols(db: &RootDatabase, query: Query) -> Vec<FileSymbol> {
     };
 
     let mut res = vec![];
-    query.search(&indices, |f| res.push(f.clone()));
+    query.search(db, &indices, |f| res.push(f.clone()));
+    dbg!(res.len());
+    dbg!(&res);
     res
 }
 
@@ -318,6 +326,7 @@ impl SymbolIndex {
 impl Query {
     pub(crate) fn search<'sym>(
         self,
+        db: &RootDatabase,
         indices: &'sym [Arc<SymbolIndex>],
         cb: impl FnMut(&'sym FileSymbol),
     ) {
@@ -330,7 +339,7 @@ impl Query {
                 for index in indices.iter() {
                     op = op.add(index.map.search(&automaton));
                 }
-                self.search_maps(indices, op.union(), cb)
+                self.search_maps(db, indices, op.union(), cb)
             }
             SearchMode::Fuzzy => {
                 let automaton = fst::automaton::Subsequence::new(&self.lowercased);
@@ -338,7 +347,7 @@ impl Query {
                 for index in indices.iter() {
                     op = op.add(index.map.search(&automaton));
                 }
-                self.search_maps(indices, op.union(), cb)
+                self.search_maps(db, indices, op.union(), cb)
             }
             SearchMode::Prefix => {
                 let automaton = fst::automaton::Str::new(&self.lowercased).starts_with();
@@ -346,13 +355,14 @@ impl Query {
                 for index in indices.iter() {
                     op = op.add(index.map.search(&automaton));
                 }
-                self.search_maps(indices, op.union(), cb)
+                self.search_maps(db, indices, op.union(), cb)
             }
         }
     }
 
     fn search_maps<'sym>(
         &self,
+        db: &RootDatabase,
         indices: &'sym [Arc<SymbolIndex>],
         mut stream: fst::map::Union<'_>,
         mut cb: impl FnMut(&'sym FileSymbol),
@@ -363,7 +373,7 @@ impl Query {
                 let symbol_index = &indices[index];
                 let (start, end) = SymbolIndex::map_value_to_range(value);
 
-                for symbol in &symbol_index.symbols[start..end] {
+                'symbol_search: for symbol in &symbol_index.symbols[start..end] {
                     let non_type_for_type_only_query = self.only_types
                         && !matches!(
                             symbol.def,
@@ -374,13 +384,49 @@ impl Query {
                                 | hir::ModuleDef::Trait(..)
                         );
                     if non_type_for_type_only_query || !self.matches_assoc_mode(symbol.is_assoc) {
-                        continue;
+                        continue 'symbol_search;
                     }
+
                     // Hide symbols that start with `__` unless the query starts with `__`
                     if ignore_underscore_prefixed && symbol.name.starts_with("__") {
-                        continue;
+                        continue 'symbol_search;
                     }
                     if self.mode.check(&self.query, self.case_sensitive, &symbol.name) {
+                        if !self.qualifier_segments.is_empty() {
+                            let mut iter = symbol
+                                .def
+                                .canonical_module_path(db)
+                                .into_iter()
+                                .flatten()
+                                .peekable();
+                            let crate_name = iter
+                                .peek()
+                                .and_then(|module| module.krate().display_name(db))
+                                .map(|name| name.crate_name().to_string());
+                            let mut symbol_path = crate_name.into_iter().chain(
+                                iter.flat_map(|module| Some(module.name(db)?.as_str().to_owned())),
+                            );
+                            // query: a::b
+                            // path: [a, e, b]
+                            let mut matched;
+                            'qualifier_segment_check: for segment in &self.qualifier_segments {
+                                matched = false;
+                                while let Some(path_fragment) = symbol_path.next() {
+                                    matched = self.mode.check(
+                                        &segment,
+                                        self.case_sensitive,
+                                        &path_fragment,
+                                    );
+                                    if matched {
+                                        continue 'qualifier_segment_check;
+                                    }
+                                }
+
+                                if !matched {
+                                    continue 'symbol_search;
+                                }
+                            }
+                        }
                         cb(symbol);
                     }
                 }

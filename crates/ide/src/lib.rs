@@ -470,7 +470,12 @@ impl Analysis {
         self.with_db(|db| {
             symbol_index::world_symbols(db, query)
                 .into_iter() // xx: should we make this a par iter?
-                .filter_map(|s| s.try_to_nav(db))
+                .filter_map(|s| {
+                    let res = s.try_to_nav(db);
+                    dbg!(res.is_none());
+                    dbg!(&res);
+                    res
+                })
                 .take(limit)
                 .map(UpmappingResult::call_site)
                 .collect::<Vec<_>>()

@@ -649,7 +649,7 @@ pub(crate) fn handle_workspace_symbol(
     if res.is_empty() && !all_symbols {
         res = exec_query(&snap, Query::new(params.query), config.search_limit)?;
     }
-
+    dbg!(&res);
     return Ok(Some(lsp_types::WorkspaceSymbolResponse::Nested(res)));
 
     fn decide_search_scope_and_kind(
