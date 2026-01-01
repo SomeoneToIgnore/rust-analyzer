@@ -332,6 +332,11 @@ impl DocCommentToken {
             let in_expansion_relative_range = in_expansion_range - descended_prefix_len - token_start;
             // Apply relative range to the original input comment
             let absolute_range = in_expansion_relative_range + original_start + prefix_len;
+
+
+            // ^ this is parsing (interesting)
+            // v this is resolving (not that much interesting)
+
             let def = resolve_doc_path_for_def(sema.db, def, &link, ns, is_inner)?;
             cb(def, node, absolute_range)
         })

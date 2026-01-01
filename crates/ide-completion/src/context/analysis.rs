@@ -16,7 +16,7 @@ use syntax::{
     },
     ast::{
         self, AttrKind, HasArgList, HasGenericArgs, HasGenericParams, HasLoopBody, HasName,
-        NameOrNameRef,
+        IsString as _, NameOrNameRef,
     },
     match_ast,
 };
@@ -492,6 +492,9 @@ fn analyze<'db>(
     let Some(name_like) = find_node_at_offset(&speculative_file, speculative_offset) else {
         let analysis = if let Some(original) = ast::String::cast(original_token.clone()) {
             CompletionAnalysis::String { original, expanded: ast::String::cast(self_token.clone()) }
+        } else if let Some(doc_comment) = token_as_doc_comment(&self_token) {
+            dbg!(doc_comment);
+            return None;
         } else {
             // Fix up trailing whitespace problem
             // #[attr(foo = $0
@@ -900,6 +903,22 @@ fn classify_name(
     };
     let name = find_node_at_offset(original_file, name.syntax().text_range().start());
     Some(NameContext { name, kind })
+}
+
+fn token_as_doc_comment(doc_token: &SyntaxToken) -> Option<(TextSize, SyntaxToken)> {
+    (match_ast! {
+        match doc_token {
+            ast::Comment(comment) => TextSize::try_from(comment.prefix().len()).ok(),
+            ast::String(string) => {
+                doc_token.parent_ancestors().find_map(ast::Attr::cast).filter(|attr| attr.simple_name().as_deref() == Some("doc"))?;
+                if doc_token.parent_ancestors().find_map(ast::MacroCall::cast).filter(|mac| mac.path().and_then(|p| p.segment()?.name_ref()).as_ref().map(|n| n.text()).as_deref() == Some("include_str")).is_some() {
+                    return None;
+                }
+                string.open_quote_text_range().map(|it| it.len())
+            },
+            _ => None,
+        }
+    }).map(|prefix_len| (prefix_len, doc_token.clone()))
 }
 
 fn classify_name_ref<'db>(

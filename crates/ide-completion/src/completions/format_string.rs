@@ -11,7 +11,13 @@ use crate::{CompletionItem, CompletionItemKind, Completions, context::Completion
 pub(crate) fn format_string(
     acc: &mut Completions,
     ctx: &CompletionContext<'_>,
+    // in a real file
+    // this has text offsets for real files
+    // TODO kb asdsaifjsdofgds
     original: &ast::String,
+    // in a macro expansion
+    // this has text offsets for the macro expansion
+    // TODO kb [comment! asdsaifjsdofgds]
     expanded: &ast::String,
 ) {
     if !is_format_string(expanded) {

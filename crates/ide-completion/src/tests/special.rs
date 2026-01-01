@@ -1776,3 +1776,18 @@ fn foo<const N: $0>() {}
         "#]],
     );
 }
+
+#[test]
+fn completes_in_doc_comments() {
+    check(
+        r#"
+/// [`F$0`] is right below.
+fn foo() {}
+
+struct Foo;
+"#,
+        expect![[r#"
+            st Foo
+        "#]],
+    );
+}
