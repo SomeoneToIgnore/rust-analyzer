@@ -376,7 +376,10 @@ pub(crate) enum CompletionAnalysis<'db> {
     Name(NameContext),
     NameRef(NameRefContext<'db>),
     Lifetime(LifetimeContext),
-    // TODO kb add a similar thing for comments
+    DocComment {
+        doc_token: SyntaxToken,
+        prefix_len: TextSize,
+    },
     /// The string the cursor is currently inside
     String {
         /// original token

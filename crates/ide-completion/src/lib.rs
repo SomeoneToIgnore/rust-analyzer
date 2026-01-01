@@ -244,6 +244,9 @@ pub fn completions(
                 completions::lifetime::complete_label(acc, ctx, lifetime_ctx);
                 completions::lifetime::complete_lifetime(acc, ctx, lifetime_ctx);
             }
+            CompletionAnalysis::DocComment { .. } => {
+                completions::comment::complete_doc_comment(acc, ctx);
+            }
             CompletionAnalysis::String { original, expanded: Some(expanded) } => {
                 completions::extern_abi::complete_extern_abi(acc, ctx, expanded);
                 completions::format_string::format_string(acc, ctx, original, expanded);

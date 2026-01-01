@@ -492,9 +492,8 @@ fn analyze<'db>(
     let Some(name_like) = find_node_at_offset(&speculative_file, speculative_offset) else {
         let analysis = if let Some(original) = ast::String::cast(original_token.clone()) {
             CompletionAnalysis::String { original, expanded: ast::String::cast(self_token.clone()) }
-        } else if let Some(doc_comment) = token_as_doc_comment(&self_token) {
-            dbg!(doc_comment);
-            return None;
+        } else if let Some((prefix_len, doc_token)) = token_as_doc_comment(&self_token) {
+            CompletionAnalysis::DocComment { doc_token, prefix_len }
         } else {
             // Fix up trailing whitespace problem
             // #[attr(foo = $0
