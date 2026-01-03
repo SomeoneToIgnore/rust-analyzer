@@ -7,14 +7,14 @@ use crate::{
     CompletionItemKind, completions::Completions, context::CompletionContext, item::Builder,
 };
 
-fn doc_comment_prefix_len(token: &SyntaxToken) -> Option<TextSize> {
-    let comment = ast::Comment::cast(token.clone())?;
-    if !comment.kind().is_doc() {
-        return None;
-    }
-    let len = comment.prefix().len() as u32;
-    Some(TextSize::from(len))
-}
+// fn doc_comment_prefix_len(token: &SyntaxToken) -> Option<TextSize> {
+//     let comment = ast::Comment::cast(token.clone())?;
+//     if !comment.kind().is_doc() {
+//         return None;
+//     }
+//     let len = comment.prefix().len() as u32;
+//     Some(TextSize::from(len))
+// }
 
 fn fragment_in_doc_comment(
     token: &SyntaxToken,
@@ -86,33 +86,33 @@ fn fragment_in_doc_comment(
 
 pub(crate) fn complete_doc_comment(acc: &mut Completions, ctx: &CompletionContext<'_>) {
     let token = &ctx.original_token;
-    let Some(prefix_len) = doc_comment_prefix_len(token) else {
-        return;
-    };
+    // let Some(prefix_len) = doc_comment_prefix_len(token) else {
+    //     return;
+    // };
 
-    let caret = ctx.position.offset;
-    let Some(frag) = fragment_in_doc_comment(token, caret, prefix_len) else {
-        return;
-    };
+    // let caret = ctx.position.offset;
+    // let Some(frag) = fragment_in_doc_comment(token, caret, prefix_len) else {
+    //     return;
+    // };
 
-    let sema: &Semantics<'_, RootDatabase> = &ctx.sema;
-    let db = ctx.db;
-    let module = ctx.module;
+    // let sema: &Semantics<'_, RootDatabase> = &ctx.sema;
+    // let db = ctx.db;
+    // let module = ctx.module;
 
-    // Walk names visible in the current module; suggest structs whose name starts with the fragment.
-    for (name, def) in module.scope(db, None) {
-        let text = name.display(db).to_string();
-        if !text.starts_with(&frag) {
-            continue;
-        }
+    // // Walk names visible in the current module; suggest structs whose name starts with the fragment.
+    // for (name, def) in module.scope(db, None) {
+    //     let text = name.display(db).to_string();
+    //     if !text.starts_with(&frag) {
+    //         continue;
+    //     }
 
-        let Some(ModuleDef::Adt(hir::Adt::Struct(strukt))) = def.as_module_def() else {
-            continue;
-        };
+    //     let Some(ModuleDef::Adt(hir::Adt::Struct(strukt))) = def.as_module_def() else {
+    //         continue;
+    //     };
 
-        let mut builder =
-            Builder::from_module_def(ctx, &ModuleDef::Adt(hir::Adt::Struct(strukt)), None);
-        builder.kind(CompletionItemKind::Struct);
-        builder.add_to(acc, db);
-    }
+    //     let mut builder =
+    //         Builder::from_module_def(ctx, &ModuleDef::Adt(hir::Adt::Struct(strukt)), None);
+    //     builder.kind(CompletionItemKind::Struct);
+    //     builder.add_to(acc, db);
+    // }
 }

@@ -799,6 +799,10 @@ fn main() {
             r#"
 struct Foo;
 
+/// [`crate::Something`]
+/// []
+/// [`]
+/// [``]
 /// $0[`Foo`] is just above
 struct Bar;
 "#,

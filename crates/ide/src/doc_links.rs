@@ -328,6 +328,7 @@ impl DocCommentToken {
                     let (mapped, is_inner) = doc_mapping.find_ast_range(range)?;
                     (mapped.value.contains(abs_in_expansion_offset)).then_some((mapped.value, link, ns, is_inner))
                 })?;
+            dbg!((&in_expansion_range, &link, &ns, &is_inner));
             // get the relative range to the doc/attribute in the expansion
             let in_expansion_relative_range = in_expansion_range - descended_prefix_len - token_start;
             // Apply relative range to the original input comment
